@@ -1,0 +1,1 @@
+erl -pa ./_build/test/lib/kursy/ebin
