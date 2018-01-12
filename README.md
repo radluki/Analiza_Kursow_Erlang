@@ -16,4 +16,9 @@ Eunit test
 Test manually with console
 --------------------------
 
-    $ ./run_erl
+    $ rebar3 shell
+
+    or
+
+    $ rebar3 as test shell
+

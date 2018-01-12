@@ -5,7 +5,9 @@
   {mod, { kursy_app, []}},
   {applications,
    [kernel,
-    stdlib
+    stdlib,
+    inets,
+    ssl
    ]},
   {env,[]},
   {modules, []},

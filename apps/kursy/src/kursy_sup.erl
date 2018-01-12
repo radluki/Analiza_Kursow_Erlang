@@ -28,8 +28,27 @@ start_link() ->
 
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    {ok, { {one_for_all, 0, 1}, []} }.
+    SupFlags = #{strategy => one_for_one, intensity => 1, period => 5},
+    ChildSpecs = [#{id => serwer,
+                    start => {serwer_kursow, start_link, []},
+                    restart => permanent,
+                    shutdown => brutal_kill,
+                    type => worker,
+                    modules => [serwer_kursow]}],
+    {ok, {SupFlags, ChildSpecs}}.
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+-ifdef(TEST).
+
+-include_lib("eunit/include/eunit.hrl").
+
+dziel_przez_0_test() ->
+    start_link(),
+    serwer_kursow:dziel_przez_0(),
+    timer:sleep(20),
+    serwer_kursow:get_state(). 
+
+-endif.

@@ -1,7 +1,5 @@
 -module(nbp).
 
-% assert definitions and export of test functions:
--include_lib("eunit/include/eunit.hrl").
 % xmlElement and xmlText records deffinitions:
 -include_lib("xmerl/include/xmerl.hrl").
 
@@ -15,15 +13,11 @@
 	 read_data_txt/1,
 	 http_get_xml_data/1
 	 ]).
-%-compile([export_all]).
 
 
 -define(TABLE_A,"http://api.nbp.pl/api/exchangerates/tables/A/").
 -define(xml(X),X++"?format=xml").
 -define(error_404(X),"404 NotFound"==string:sub_string(X,1,12)).
-
--include_lib("eunit/include/eunit.hrl").
-
    
 date_to_string({Y,M,D}) ->
    io_lib:format("~p-~2..0B-~2..0B",[Y,M,D]).
@@ -105,6 +99,11 @@ tmp_file_name(Name) ->
 
 % TESTS ================================================
 
+-ifdef(TEST).
+
+% assert definitions and export of test functions:
+-include_lib("eunit/include/eunit.hrl").
+%
 -define(Table_02,"./test_data/nbp_2018-01-02.xml").
 
 parser_test() ->
@@ -138,3 +137,5 @@ tmp_file_name_collision_test() ->
    A = tmp_file_name(""),
    B = tmp_file_name(""),
    ?assert(A=/=B).
+
+-endif.
