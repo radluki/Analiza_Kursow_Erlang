@@ -13,8 +13,9 @@
          code_change/3]).
 
 -export([get_state/0,
-	get_current_currency/1,
-	get_currency/2]).
+	get_current_price/1,
+	get_price/2,
+	get_price_list/3]).
 
 -ifdef(TEST).
 -export([dziel_przez_0/0]).
@@ -22,10 +23,10 @@
 
 % Skipped 2 years of data, because format change:
 -define(INIT_DATE,{2004,5,3}).
--define(TIMEOUT,5000).
+-define(TIMEOUT,1000).
 -define(VAR_DIR,".conf/").
 -define(STATE_FILE, ?VAR_DIR ++ "state.bin").
--record(state,{timestamp = ?INIT_DATE, current_data=no_current_data }).
+-record(state,{timestamp = ?INIT_DATE, current_data=null }).
 
 start_link() ->
     create_var_dir(),
@@ -41,15 +42,22 @@ find_code(_,Dict) when is_atom(Dict) ->
 find_code(Code,Dict) ->
     case maps:find(Code,Dict) of
         {ok,Val} -> Val;
-	error -> not_found
+	error -> null
     end.
 
 
+handle_call({get,InitD,List_of_days,Code},_,State) ->
+    List_of_prices = lists:map(
+    		     fun(X) -> 
+		     	Dict = read_parsed_data(date_plus_days(InitD,X)),
+			find_code(Code,Dict)
+		     end, List_of_days),
+    {reply, List_of_prices, State};
 handle_call({get,Date,Code},_,State) ->
     Data_Date = read_parsed_data(Date),
     {reply, find_code(Code,Data_Date), State};
 handle_call({current,_},_,#state{current_data=error_404}=State) ->
-    {reply,no_data_available,State};
+    {reply,null,State};
 handle_call(get_state,_,State) ->
     {reply,State,State};
 handle_call({current,Code},_,State = #state{current_data=Dict}) ->
@@ -62,7 +70,7 @@ handle_cast(Msg, State) ->
     {noreply, State}.
 
 handle_info(next_day, State) ->
-    Date = State#state.timestamp,
+    Date = date_plus_days(State#state.timestamp,1),
     Data_tup = nbp:download_and_parse(Date),
     Data = convert_tuples_to_map(Data_tup),
     State_new = next_day(State,Data),
@@ -86,18 +94,28 @@ code_change(_OldVsn, State, _Extra) ->
 %% Implementation
 %======================================
 
-get_current_currency(Code) ->
+% CALLBACKS
+get_price_list(Init_date,Days_from_list,Code) ->
+    gen_server:call(?MODULE,{get,Init_date,Days_from_list,Code}).
+
+get_current_price(Code) ->
     gen_server:call(?MODULE, {current,Code}).
 
 get_state() ->
     gen_server:call(?MODULE, get_state).
 
-get_currency(Date={Y,M,D},Code) ->
+get_price(Date={_Y,_M,_D},Code) ->
     gen_server:call(?MODULE, {get,Date,Code}).
 
+% CALLBACKS END
+
+date_plus_days(Date,Days) ->  
+   D = calendar:date_to_gregorian_days(Date) + Days,
+   calendar:gregorian_days_to_date(D).
+
 next_day(State,Data) ->
-   D = calendar:date_to_gregorian_days(State#state.timestamp) + 1,
-   State#state{timestamp = calendar:gregorian_days_to_date(D),
+   D = date_plus_days(State#state.timestamp,1),
+   State#state{timestamp = D,
                current_data = Data}.
 
 create_var_dir() ->
@@ -109,7 +127,7 @@ create_var_dir() ->
 load_state() ->
     case filelib:is_file(?STATE_FILE) of
         true -> nbp:read_data_bin(?STATE_FILE);
-        false -> #state{current_data=not_available}
+        false -> #state{}
     end.
 
 convert_tuples_to_map(State_tuples) when is_list(State_tuples)->
@@ -127,28 +145,34 @@ read_parsed_data(Date) ->
     File = ?VAR_DIR ++ nbp:date_to_string(Date) ++ ".xml.parsed",
     case filelib:is_file(File) of
        true -> 
-    	    Data = nbp:read_data_bin(File);
+    	    nbp:read_data_bin(File);
        false ->
-            data_not_available
+            null
     end.
 
 save_state(State) ->
     nbp:save_data_bin(?STATE_FILE,State).
 
+%======================================
+%% Tests
+%======================================
+
 -ifdef(TEST).
 
 -include_lib("eunit/include/eunit.hrl").
 
-get_currency_test() ->
+get_price_test() ->
     start_link(),
     Date = {2004,5,5},
-    Data_read = read_parsed_data(Date),
+    Data_tup = nbp:download_and_parse(Date),
+    Data_read = convert_tuples_to_map(Data_tup),
+    save_parsed_data(Date,Data_read),
     Vals = maps:values(Data_read),
     Keys = maps:keys(Data_read),
-    Vals2 = lists:map(fun(X) -> get_currency(Date,X) end, Keys),
+    Vals2 = lists:map(fun(X) -> get_price(Date,X) end, Keys),
     [] = Vals -- Vals2,
-    data_not_available = get_currency({1999,1,1},"EUR"),
-    not_found = get_currency(Date,"XXX").
+    null = get_price({1999,1,1},"EUR"),
+    null = get_price(Date,"XXX").
 
 read_parsed_data_test() ->
     Data = { parsed, data },
