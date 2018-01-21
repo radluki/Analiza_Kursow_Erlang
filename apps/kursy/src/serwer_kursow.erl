@@ -35,7 +35,7 @@
 -define(VAR_DIR,".conf/").
 -define(STATE_FILE, ?VAR_DIR ++ "state.bin").
 %%State
--record(state,{timestamp = ?INIT_DATE, current_data=null, users=null}).
+-record(state,{timestamp = ?INIT_DATE, current_data=null, users=#{}}).
 
 start_link() ->
     create_var_dir(),
@@ -79,6 +79,16 @@ handle_call({register_user,Username},_,State = #state{users=Users}) ->
             	State#state{users = Users#{Username => {#{'PLN' => 0},#{}}}}};
         false -> 
             {reply,already_registered,State}
+    end;
+
+handle_call({depose,Username,Amount},_,State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	{Money,Autotraders} = maps:get(Username,Users),
+			Money_new = Money#{'PLN' => (maps:get('PLN',Money) + Amount)},
+			{reply,{ok},State#state{users=Users#{Username => {Money_new,Autotraders}}}};
+        false -> 
+            {reply,no_user,State}
     end;
 
 handle_call({withdraw,Username,Amount},_,State = #state{users=Users}) ->
@@ -161,7 +171,7 @@ handle_call({get_balance,Username,Code},_,State = #state{users=Users}) ->
             {reply,no_user,State}
     end;
 
-handle_call({withdraw,Username},_,State = #state{users=Users}) ->
+handle_call({get_autotraders,Username},_,State = #state{users=Users}) ->
 	case maps:is_key(Username,Users) of
         true -> 
         	{_Money,Autotraders} = maps:get(Username,Users),
@@ -174,17 +184,16 @@ handle_call({withdraw,Username},_,State = #state{users=Users}) ->
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
-% NEW HANDLERS
-handle_cast({depose,Username,Amount},State = #state{users=Users}) ->
-	case maps:is_key(Username,Users) of
-        true -> 
-        	{Money,Autotraders} = maps:get(Username,Users),
-			Money_new = Money#{'PLN' => (maps:get('PLN',Money) + Amount)},
-			{noreply,State#state{users=Users#{Username => {Money_new,Autotraders}}}};
-        false -> 
-            {noreply,State}
-    end;
-% END
+% handle_cast({depose,Username,Amount},State = #state{users=Users}) ->
+% 	case maps:is_key(Username,Users) of
+%         true -> 
+%         	{Money,Autotraders} = maps:get(Username,Users),
+% 			Money_new = Money#{'PLN' => (maps:get('PLN',Money) + Amount)},
+% 			{noreply,State#state{users=Users#{Username => {Money_new,Autotraders}}}};
+%         false -> 
+%             {noreply,State}
+%     end;
+
 handle_cast(Msg, State) ->
     handle_unrecognized(Msg),
     {noreply, State}.
@@ -233,7 +242,7 @@ register_user(Username) ->
 	gen_server:call(?MODULE,{register_user,Username}).
 
 depose(Username,Amount) ->
-	gen_server:cast(?MODULE,{depose,Username,Amount}).
+	gen_server:call(?MODULE,{depose,Username,Amount}).
 
 withdraw(Username,Amount) ->
 	gen_server:call(?MODULE,{withdraw,Username,Amount}).
