@@ -15,7 +15,15 @@
 -export([get_state/0,
 	get_current_price/1,
 	get_price/2,
-	get_price_list/3]).
+	get_price_list/3,
+	register_user/1,
+	depose/2,
+	withdraw/2,
+	buy/3,
+	sell/3,
+	get_balance/1,
+	get_balance/2,
+	get_autotraders/1]).
 
 -ifdef(TEST).
 -export([dziel_przez_0/0]).
@@ -26,7 +34,8 @@
 -define(TIMEOUT,1000).
 -define(VAR_DIR,".conf/").
 -define(STATE_FILE, ?VAR_DIR ++ "state.bin").
--record(state,{timestamp = ?INIT_DATE, current_data=null }).
+%%State
+-record(state,{timestamp = ?INIT_DATE, current_data=null, users=null}).
 
 start_link() ->
     create_var_dir(),
@@ -62,9 +71,120 @@ handle_call(get_state,_,State) ->
     {reply,State,State};
 handle_call({current,Code},_,State = #state{current_data=Dict}) ->
     {reply,find_code(Code,Dict),State};
+% NEW HANDLERS
+handle_call({register_user,Username},_,State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+            {reply,{ok},
+            	State#state{users = Users#{Username => {#{'PLN' => 0},#{}}}}};
+        false -> 
+            {reply,already_registered,State}
+    end;
+
+handle_call({withdraw,Username,Amount},_,State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	{Money,Autotraders} = maps:get(Username,Users),
+        	case maps:get('PLN',Money) >= Amount of
+        		true -> 
+					Money_new = Money#{'PLN' => (maps:get('PLN',Money) - Amount)},
+					{reply,{ok},
+						State#state{users=Users#{Username => {Money_new,Autotraders}}}};
+        		false -> 
+            		{reply,not_enough_money,State}
+    		end;
+        false -> 
+            {reply,no_user,State}
+    end;
+
+handle_call({buy,Username,Code,Amount},_,State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	Price = get_current_price(Code),
+			case Price of
+        		null -> 
+            		{reply,no_current_price,State};
+        		_Else -> 
+		        	{Money,Autotraders} = maps:get(Username,Users),
+		        	case (maps:get('PLN',Money) >= (Amount*Price)) of
+		        		true -> 
+		        			Money_new = Money#{Code => (maps:get(Code,Money) + Amount),
+									'PLN' => (maps:get('PLN',Money) - Amount*Price)},
+							{reply,{ok},
+								State#state{users=Users#{Username => {Money_new,Autotraders}}}};
+		        		false -> 
+		            		{reply,not_enough_money,State}
+		    		end
+    		end;
+        false -> 
+            {reply,no_user,State}
+    end;
+
+handle_call({sell,Username,Code,Amount},_,State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	{Money,Autotraders} = maps:get(Username,Users),
+        	case maps:get(Code,Money,0) >= Amount of
+        		true -> 
+        			Price = get_current_price(Code),
+        			case Price of
+		        		null -> 
+		            		{reply,no_current_price,State};
+		        		_Else -> 
+							Money_new = Money#{Code => (maps:get(Code,Money) - Amount),
+											'PLN' => (maps:get('PLN',Money) + Amount*Price)},
+							{reply,{ok},
+								State#state{users=Users#{Username => {Money_new,Autotraders}}}}
+		    		end;
+        		false -> 
+            		{reply,not_enough_money,State}
+    		end;
+        false -> 
+            {reply,no_user,State}
+    end;
+
+handle_call({get_balance,Username},_,State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	{Money,_Autotraders} = maps:get(Username,Users),
+            {reply,Money,State};
+        false -> 
+            {reply,no_user,State}
+    end;
+
+handle_call({get_balance,Username,Code},_,State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	{Money,_Autotraders} = maps:get(Username,Users),
+            {reply,maps:get(Code,Money,0),State};
+        false -> 
+            {reply,no_user,State}
+    end;
+
+handle_call({withdraw,Username},_,State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	{_Money,Autotraders} = maps:get(Username,Users),
+            {reply,Autotraders,State};
+        false -> 
+            {reply,no_user,State}
+    end;
+
+% END
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
+% NEW HANDLERS
+handle_cast({depose,Username,Amount},State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	{Money,Autotraders} = maps:get(Username,Users),
+			Money_new = Money#{'PLN' => (maps:get('PLN',Money) + Amount)},
+			{noreply,State#state{users=Users#{Username => {Money_new,Autotraders}}}};
+        false -> 
+            {noreply,State}
+    end;
+% END
 handle_cast(Msg, State) ->
     handle_unrecognized(Msg),
     {noreply, State}.
@@ -107,12 +227,39 @@ get_state() ->
 get_price(Date={_Y,_M,_D},Code) ->
     gen_server:call(?MODULE, {get,Date,Code}).
 
+% NEW CALLBACKS
+
+register_user(Username) ->
+	gen_server:call(?MODULE,{register_user,Username}).
+
+depose(Username,Amount) ->
+	gen_server:cast(?MODULE,{depose,Username,Amount}).
+
+withdraw(Username,Amount) ->
+	gen_server:call(?MODULE,{withdraw,Username,Amount}).
+
+buy(Username,Code,Amount) ->
+	gen_server:call(?MODULE,{buy,Username,Code,Amount}).
+
+sell(Username,Code,Amount) ->
+	gen_server:call(?MODULE,{sell,Username,Code,Amount}).
+
+get_balance(Username) ->
+	gen_server:call(?MODULE,{get_balance,Username}).
+
+get_balance(Username,Code) ->
+	gen_server:call(?MODULE,{get_balance,Username,Code}).
+
+get_autotraders(Username) ->
+	gen_server:call(?MODULE,{get_autotraders,Username}).
+
 % CALLBACKS END
 
 date_plus_days(Date,Days) ->  
    D = calendar:date_to_gregorian_days(Date) + Days,
    calendar:gregorian_days_to_date(D).
 
+%%State
 next_day(State,Data) ->
    D = date_plus_days(State#state.timestamp,1),
    State#state{timestamp = D,
@@ -196,8 +343,9 @@ convert_tuples_to_map_test() ->
     nbp:save_data_txt("tmp/map_of_state.txt",M3),
     M = M3.
 
+%%State
 save_state_test() ->
-    {D,_} = x_test_some_current_data(),
+    {_,D} = x_test_some_current_data(),
     S = next_day(#state{},D),
     save_state(S),
     S = load_state().

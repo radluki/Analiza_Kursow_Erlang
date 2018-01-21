@@ -1,7 +1,7 @@
 -module(client).
 
 -export([register_user/1,depose/2,withdraw/2,buy/3,sell/3,get_balance/1,
-	get_balance/2,show_autotraders/1,set_autosell_MACD/3,set_autobuy_MACD/3,
+	get_balance/2,get_autotraders/1,set_autosell_MACD/4,set_autobuy_MACD/4,
 	remove_autoseller_MACD/2,remove_autobuyer_MACD/2]).
 
 register_user(Username) ->
@@ -25,14 +25,20 @@ get_balance(Username) ->
 get_balance(Username,Code) ->
 	serwer_kursow:get_balance(Username,Code).
 
-show_autotraders(Username) ->
+get_autotraders(Username) ->
 	serwer_kursow:get_autotraders(Username).
 
+get_current_price(Code) ->
+	serwer_kursow:get_current_price(Code).
+
+get_price(Date={_Y,_M,_D},Code) ->
+	serwer_kursow:get_price(Date,Code).
+
 %TODO
-set_autosell_MACD(Username,Code,Amount) ->
+set_autosell_MACD(Username,Code,Amount,MinPrice) ->
 	{ok}.
 
-set_autobuy_MACD(Username,Code,Amount) ->
+set_autobuy_MACD(Username,Code,Amount,MaxPrice) ->
 	{ok}.
 
 remove_autoseller_MACD(Username,Code) ->
