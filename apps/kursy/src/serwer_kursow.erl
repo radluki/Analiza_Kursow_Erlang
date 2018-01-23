@@ -23,7 +23,11 @@
 	sell/3,
 	get_balance/1,
 	get_balance/2,
-	get_autotraders/1]).
+	get_autotraders/1,
+	set_autosell_MACD/4,
+	set_autobuy_MACD/4,
+	remove_autosell_MACD/2,
+	remove_autobuy_MACD/2]).
 
 -ifdef(TEST).
 -export([dziel_przez_0/0]).
@@ -76,7 +80,7 @@ handle_call({register_user,Username},_,State = #state{users=Users}) ->
 	case maps:is_key(Username,Users) of
         true -> 
             {reply,{ok},
-            	State#state{users = Users#{Username => {#{'PLN' => 0},#{}}}}};
+            	State#state{users = Users#{Username => {#{"PLN" => 0},#{}}}}};
         false -> 
             {reply,already_registered,State}
     end;
@@ -85,7 +89,7 @@ handle_call({depose,Username,Amount},_,State = #state{users=Users}) ->
 	case maps:is_key(Username,Users) of
         true -> 
         	{Money,Autotraders} = maps:get(Username,Users),
-			Money_new = Money#{'PLN' => (maps:get('PLN',Money) + Amount)},
+			Money_new = Money#{"PLN" => (maps:get("PLN",Money) + Amount)},
 			{reply,{ok},State#state{users=Users#{Username => {Money_new,Autotraders}}}};
         false -> 
             {reply,no_user,State}
@@ -95,9 +99,9 @@ handle_call({withdraw,Username,Amount},_,State = #state{users=Users}) ->
 	case maps:is_key(Username,Users) of
         true -> 
         	{Money,Autotraders} = maps:get(Username,Users),
-        	case maps:get('PLN',Money) >= Amount of
+        	case maps:get("PLN",Money) >= Amount of
         		true -> 
-					Money_new = Money#{'PLN' => (maps:get('PLN',Money) - Amount)},
+					Money_new = Money#{"PLN" => (maps:get("PLN",Money) - Amount)},
 					{reply,{ok},
 						State#state{users=Users#{Username => {Money_new,Autotraders}}}};
         		false -> 
@@ -116,10 +120,10 @@ handle_call({buy,Username,Code,Amount},_,State = #state{users=Users}) ->
             		{reply,no_current_price,State};
         		_Else -> 
 		        	{Money,Autotraders} = maps:get(Username,Users),
-		        	case (maps:get('PLN',Money) >= (Amount*Price)) of
+		        	case (maps:get("PLN",Money) >= (Amount*Price)) of
 		        		true -> 
 		        			Money_new = Money#{Code => (maps:get(Code,Money) + Amount),
-									'PLN' => (maps:get('PLN',Money) - Amount*Price)},
+									"PLN" => (maps:get("PLN",Money) - Amount*Price)},
 							{reply,{ok},
 								State#state{users=Users#{Username => {Money_new,Autotraders}}}};
 		        		false -> 
@@ -142,7 +146,7 @@ handle_call({sell,Username,Code,Amount},_,State = #state{users=Users}) ->
 		            		{reply,no_current_price,State};
 		        		_Else -> 
 							Money_new = Money#{Code => (maps:get(Code,Money) - Amount),
-											'PLN' => (maps:get('PLN',Money) + Amount*Price)},
+											"PLN" => (maps:get("PLN",Money) + Amount*Price)},
 							{reply,{ok},
 								State#state{users=Users#{Username => {Money_new,Autotraders}}}}
 		    		end;
@@ -180,19 +184,101 @@ handle_call({get_autotraders,Username},_,State = #state{users=Users}) ->
             {reply,no_user,State}
     end;
 
+handle_call({set_autosell_MACD,Username,Code,Amount,MinPrice},_,State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	{Money,Autotraders} = maps:get(Username,Users),
+        	Key = "sell_" ++ Code ++ "_MACD",
+        	case maps:is_key(Key,Autotraders) of
+        		true ->
+            		{reply,already_exists,State};
+            	false ->
+        			Pid = spawn(?MODULE,autosell_MACD,[Username, Code, Amount, MinPrice]),
+        			Monitor_pid = spawn(?MODULE,monitor_init,
+        				[Pid, Username, Code, Amount, MinPrice, "sell", "MACD"]),
+        			Autotraders_new = Autotraders#{Key => {Pid,Monitor_pid}},
+        			{reply,{ok},State#state{users=Users#{Username => {Money,Autotraders_new}}}}
+        	end;
+        false -> 
+            {reply,no_user,State}
+    end;
+
+handle_call({set_autobuy_MACD,Username,Code,Amount,MaxPrice},_,State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	{Money,Autotraders} = maps:get(Username,Users),
+        	Key = "buy_" ++ Code ++ "_MACD",
+        	case maps:is_key(Key,Autotraders) of
+        		true ->
+            		{reply,already_exists,State};
+            	false ->
+        			Pid = spawn(?MODULE,autobuy_MACD,[Username, Code, Amount, MaxPrice]),
+        			Monitor_pid = spawn(?MODULE,monitor_init,
+        				[Pid, Username, Code, Amount, MaxPrice, "buy", "MACD"]),
+        			Autotraders_new = Autotraders#{Key => {Pid,Monitor_pid}},
+        			{reply,{ok},State#state{users=Users#{Username => {Money,Autotraders_new}}}}
+        	end;
+        false -> 
+            {reply,no_user,State}
+    end;
+
+handle_call({remove_autosell_MACD,Username,Code},_,State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	{Money,Autotraders} = maps:get(Username,Users),
+        	Key = "sell_" ++ Code ++ "_MACD",
+        	case maps:is_key(Key,Autotraders) of
+        		true ->
+					{Pid,Monitor_pid} = maps:get(Key,Autotraders),
+        			erlang:exit(Monitor_pid,kill),
+        			erlang:exit(Pid,kill),
+        			Autotraders_new = maps:remove(Key,Autotraders),
+        			{reply,{ok},State#state{users=Users#{Username => {Money,Autotraders_new}}}};
+            	false ->
+            		{reply,no_trader,State}
+            end;
+        false -> 
+            {reply,no_user,State}
+    end;
+
+handle_call({remove_autobuy_MACD,Username,Code},_,State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	{Money,Autotraders} = maps:get(Username,Users),
+        	Key = "buy_" ++ Code ++ "_MACD",
+        	case maps:is_key(Key,Autotraders) of
+        		true ->
+					{Pid,Monitor_pid} = maps:get(Key,Autotraders),
+        			erlang:exit(Monitor_pid,kill),
+        			erlang:exit(Pid,kill),
+        			Autotraders_new = maps:remove(Key,Autotraders),
+        			{reply,{ok},State#state{users=Users#{Username => {Money,Autotraders_new}}}};
+            	false ->
+            		{reply,no_trader,State}
+            end;
+        false -> 
+            {reply,no_user,State}
+    end;
+
 % END
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
-% handle_cast({depose,Username,Amount},State = #state{users=Users}) ->
-% 	case maps:is_key(Username,Users) of
-%         true -> 
-%         	{Money,Autotraders} = maps:get(Username,Users),
-% 			Money_new = Money#{'PLN' => (maps:get('PLN',Money) + Amount)},
-% 			{noreply,State#state{users=Users#{Username => {Money_new,Autotraders}}}};
-%         false -> 
-%             {noreply,State}
-%     end;
+handle_cast({update_pid,Username,Key,Pid}, State = #state{users=Users}) ->
+	case maps:is_key(Username,Users) of
+        true -> 
+        	{Money,Autotraders} = maps:get(Username,Users),
+        	case maps:is_key(Key,Autotraders) of
+        		true ->
+        			{_,Monitor_pid} = maps:get(Key,Autotraders),
+        			Autotraders_new = Autotraders#{Key => {Pid,Monitor_pid}},
+        			{reply,{ok},State#state{users=Users#{Username => {Money,Autotraders_new}}}};
+        		false ->
+        			{noreply,State}
+        	end;
+        false -> 
+            {noreply,State}
+    end;
 
 handle_cast(Msg, State) ->
     handle_unrecognized(Msg),
@@ -262,6 +348,18 @@ get_balance(Username,Code) ->
 get_autotraders(Username) ->
 	gen_server:call(?MODULE,{get_autotraders,Username}).
 
+set_autosell_MACD(Username,Code,Amount,MinPrice) ->
+	gen_server:call(?MODULE,{set_autosell_MACD,Username,Code,Amount,MinPrice}).
+
+set_autobuy_MACD(Username,Code,Amount,MaxPrice) ->
+	gen_server:call(?MODULE,{set_autobuy_MACD,Username,Code,Amount,MaxPrice}).
+
+remove_autosell_MACD(Username,Code) ->
+	gen_server:call(?MODULE,{remove_autosell_MACD,Username,Code}).
+
+remove_autobuy_MACD(Username,Code) ->
+	gen_server:call(?MODULE,{remove_autobuy_MACD,Username,Code}).
+
 % CALLBACKS END
 
 date_plus_days(Date,Days) ->  
@@ -308,6 +406,25 @@ read_parsed_data(Date) ->
 
 save_state(State) ->
     nbp:save_data_bin(?STATE_FILE,State).
+
+monitor_init(Pid,Username,Code,Amount,Price,Mode,Algorithm) ->
+           erlang:monitor(process,Pid),
+           monitor_loop(Username,Code,Amount,Price,Mode,Algorithm).
+
+monitor_loop(Username,Code,Amount,Price,Mode,Algorithm) -> 
+  receive
+    {'DOWN',_,_,_,_} -> 
+        Key = Mode ++ "_" ++ Code ++ "_" ++ Algorithm,
+        case Mode of
+        	"sell" -> 
+        		Pid = spawn(?MODULE,autosell_MACD,[Username, Code, Amount, Price]),
+    			gen_server:cast(?MODULE,{update_pid,Username,Key,Pid});
+        	"buy" -> 
+        		Pid = spawn(?MODULE,autobuy_MACD,[Username, Code, Amount, Price]),
+    			gen_server:cast(?MODULE,{update_pid,Username,Key,Pid});
+        	true -> null
+        end
+  end.
 
 %======================================
 %% Tests
