@@ -20,7 +20,7 @@ loop(Username,N) ->
 	client:withdraw(Username,2000),
 	client:withdraw(Username,200),
     timer:sleep(?TIMEOUT_MOCK),
-	%client:set_autosell_MACD(Username,"USD",client:get_balance(Username,"USD"),client:get_current_price("USD")),
+	client:set_autosell_MACD(Username,"USD",client:get_balance(Username,"USD"),client:get_current_price("USD")),
     client:sell(Username,"EUR",client:get_balance(Username,"EUR")),
     client:sell(Username,"CHF",client:get_balance(Username,"CHF")),
 	loop(Username,N-1).

@@ -1,8 +1,9 @@
 -module(client).
 
 -export([register_user/1,depose/2,withdraw/2,buy/3,sell/3,get_balance/1,
-	get_balance/2,get_autotraders/1,set_autosell_MACD/4,set_autobuy_MACD/4,
-	remove_autosell_MACD/2,remove_autobuy_MACD/2]).
+	get_balance/2,get_autotraders/1,get_current_price/1,get_price/2,
+	set_autosell_MACD/4,set_autobuy_MACD/4,	remove_autosell_MACD/2,
+	remove_autobuy_MACD/2]).
 
 register_user(Username) ->
 	serwer_kursow:register_user(Username).

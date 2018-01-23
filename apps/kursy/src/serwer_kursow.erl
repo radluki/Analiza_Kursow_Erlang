@@ -426,8 +426,81 @@ monitor_loop(Username,Code,Amount,Price,Mode,Algorithm) ->
         end
   end.
 
-%autosell_MACD(Username,Code,Amount,MinPrice) ->
-	
+autosell_MACD(Username,Code,Amount,MinPrice) ->
+	Price = get_current_price(Code),
+	case Price of
+		null ->
+    		timer:sleep(?TIMEOUT),
+			autosell_MACD(Username,Code,Amount,MinPrice);
+		_Else ->
+			EMA12 = Price,
+			EMA26 = Price,
+		    timer:sleep(?TIMEOUT),
+			autosell_MACD(Username,Code,Amount,MinPrice,EMA12,EMA26)
+	end.
+
+autosell_MACD(Username,Code,Amount,MinPrice,EMA12,EMA26) ->
+    Price = get_current_price(Code),
+	case Price of
+		null ->
+    		timer:sleep(?TIMEOUT),
+			autosell_MACD(Username,Code,Amount,MinPrice,EMA12,EMA26);
+		_Else ->
+			EMA12_new = (Price*2+EMA12*11)/13,
+			EMA26_new = (Price*2+EMA26*25)/27,
+			MACD = EMA12-EMA26,
+			MACD_new = EMA12_new-EMA26_new,
+			if
+				((MACD_new<0) and (MACD>0) and (Price>MinPrice)) ->
+					Sell_result = sell(Username,Code,Amount),
+					case Sell_result of
+						{ok} ->
+							remove_autosell_MACD(Username,Code);
+						_Else ->
+							autosell_MACD(Username,Code,Amount,MinPrice,EMA12_new,EMA26_new)
+					end;
+				true ->
+					autosell_MACD(Username,Code,Amount,MinPrice,EMA12_new,EMA26_new)
+			end
+	end.
+
+autobuy_MACD(Username,Code,Amount,MaxPrice) ->
+	Price = get_current_price(Code),
+	case Price of
+		null ->
+    		timer:sleep(?TIMEOUT),
+			autobuy_MACD(Username,Code,Amount,MaxPrice);
+		_Else ->
+			EMA12 = Price,
+			EMA26 = Price,
+		    timer:sleep(?TIMEOUT),
+			autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12,EMA26)
+	end.
+
+autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12,EMA26) ->
+    Price = get_current_price(Code),
+	case Price of
+		null ->
+    		timer:sleep(?TIMEOUT),
+			autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12,EMA26);
+		_Else ->
+			EMA12_new = (Price*2+EMA12*11)/13,
+			EMA26_new = (Price*2+EMA26*25)/27,
+			MACD = EMA12-EMA26,
+			MACD_new = EMA12_new-EMA26_new,
+			if
+				((MACD_new>0) and (MACD<0) and (Price<MaxPrice)) ->
+					Sell_result = sell(Username,Code,Amount),
+					case Sell_result of
+						{ok} ->
+							remove_autobuy_MACD(Username,Code);
+						_Else ->
+							autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12_new,EMA26_new)
+					end;
+				true ->
+					autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12_new,EMA26_new)
+			end
+	end.
 
 %======================================
 %% Tests
