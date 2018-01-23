@@ -7,21 +7,38 @@ register_test() ->
 	serwer_kursow:register_user(Username),
 	already_registered = serwer_kursow:register_user(Username).
 
+depose_no_user_test() ->
+	Username = test21,
+	no_user = serwer_kursow:depose(user,1000).
+
 depose_test() ->
 	Username = test2,
-	no_user = serwer_kursow:depose(user,1000),
-	serwer_kursow:register_user(Username),
-	{ok} = serwer_kursow:depose(Username,1000),
-	1000 = serwer_kursow:get_balance(Username,"PLN").
+	Status = serwer_kursow:register_user(Username),
+	case Status of
+		{ok} ->
+			0 = serwer_kursow:get_balance(Username,"PLN"),
+			{ok} = serwer_kursow:depose(Username,1000),
+			1000 = serwer_kursow:get_balance(Username,"PLN");
+		_Else ->
+			true
+	end.
 
 withdraw_test() ->
 	Username = test3,
-	no_user = serwer_kursow:withdraw(Username,10000),
 	serwer_kursow:register_user(Username),
 	serwer_kursow:depose(Username,1000),
-	not_enough_money = serwer_kursow:withdraw(Username,10000),
 	{ok} = serwer_kursow:withdraw(Username,1000),
 	0 = serwer_kursow:get_balance(Username,"PLN").
+
+withdraw_no_user_test() ->
+	Username = test31,
+	no_user = serwer_kursow:withdraw(Username,10000).
+
+withdraw_not_enough_test() ->
+	Username = test32,
+	serwer_kursow:register_user(Username),
+	serwer_kursow:depose(Username,1000),
+	not_enough_money = serwer_kursow:withdraw(Username,10000).
 
 buy_test() ->
 	Username = test4,
@@ -73,5 +90,15 @@ get_balance_test() ->
 			1 = serwer_kursow:get_balance(Username,Code)
 	end.
 
-% get_autotraders_test() ->
-% 	serwer_kursow:get_autotraders(Username).
+get_autotraders_test() ->
+	Username = test7,
+	no_user = serwer_kursow:get_autotraders(Username),
+	serwer_kursow:register_user(Username),
+	serwer_kursow:set_autosell_MACD(Username,"CHF",1000,4.0),
+	true = maps:is_key("sell_CHF_MACD",serwer_kursow:get_autotraders(Username)),
+	serwer_kursow:remove_autosell_MACD(Username,"CHF"),
+	false = maps:is_key("sell_CHF_MACD",serwer_kursow:get_autotraders(Username)),
+	serwer_kursow:set_autobuy_MACD(Username,"CHF",1000,4.0),
+	true = maps:is_key("buy_CHF_MACD",serwer_kursow:get_autotraders(Username)),
+	serwer_kursow:remove_autobuy_MACD(Username,"CHF"),
+	false = maps:is_key("buy_CHF_MACD",serwer_kursow:get_autotraders(Username)).

@@ -1,9 +1,14 @@
 -module(mock_client).
 
--export([init/1,loop/2]).
+-export([start/1,init/1,loop/2]).
 
--define(LOOP_NO,5).
+-define(LOOP_NO,500).
 -define(TIMEOUT_MOCK,500).
+
+start(Username) ->
+    P = spawn_link(?MODULE,init,[Username]),
+    register(?MODULE,P),
+    {ok,P}.
 
 init(Username) ->
 	client:register_user(Username),
@@ -14,7 +19,7 @@ loop(Username,0) ->
 
 loop(Username,N) ->
 	client:depose(10000),
-	%client:set_autobuy_MACD(Username, "CHF",1000,client:get_current_price("CHF")),
+	client:set_autobuy_MACD(Username,"CHF",1000,client:get_current_price("CHF")),
 	client:buy(Username,"USD",rand:uniform(2000)),
 	client:buy(Username,"EUR",rand:uniform(2000)),
 	client:withdraw(Username,2000),

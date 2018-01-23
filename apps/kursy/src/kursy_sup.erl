@@ -35,6 +35,8 @@ init([]) ->
                     shutdown => brutal_kill,
                     type => worker,
                     modules => [serwer_kursow]}],
+                % {mock,{mock_client, start, [client1]},permanent,
+                %     brutal_kill, worker,[mock_client]}],
     {ok, {SupFlags, ChildSpecs}}.
 
 %%====================================================================
