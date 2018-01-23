@@ -78,10 +78,10 @@ handle_call({current,Code},_,State = #state{current_data=Dict}) ->
 % NEW HANDLERS
 handle_call({register_user,Username},_,State = #state{users=Users}) ->
 	case maps:is_key(Username,Users) of
-        true -> 
+        false -> 
             {reply,{ok},
             	State#state{users = Users#{Username => {#{"PLN" => 0},#{}}}}};
-        false -> 
+        true -> 
             {reply,already_registered,State}
     end;
 
@@ -111,10 +111,10 @@ handle_call({withdraw,Username,Amount},_,State = #state{users=Users}) ->
             {reply,no_user,State}
     end;
 
-handle_call({buy,Username,Code,Amount},_,State = #state{users=Users}) ->
+handle_call({buy,Username,Code,Amount},_,State = #state{current_data=Dict,users=Users}) ->
 	case maps:is_key(Username,Users) of
         true -> 
-        	Price = get_current_price(Code),
+        	Price = find_code(Code,Dict),
 			case Price of
         		null -> 
             		{reply,no_current_price,State};
@@ -122,7 +122,7 @@ handle_call({buy,Username,Code,Amount},_,State = #state{users=Users}) ->
 		        	{Money,Autotraders} = maps:get(Username,Users),
 		        	case (maps:get("PLN",Money) >= (Amount*Price)) of
 		        		true -> 
-		        			Money_new = Money#{Code => (maps:get(Code,Money) + Amount),
+		        			Money_new = Money#{Code => (maps:get(Code,Money,0) + Amount),
 									"PLN" => (maps:get("PLN",Money) - Amount*Price)},
 							{reply,{ok},
 								State#state{users=Users#{Username => {Money_new,Autotraders}}}};
@@ -134,13 +134,13 @@ handle_call({buy,Username,Code,Amount},_,State = #state{users=Users}) ->
             {reply,no_user,State}
     end;
 
-handle_call({sell,Username,Code,Amount},_,State = #state{users=Users}) ->
+handle_call({sell,Username,Code,Amount},_,State = #state{current_data=Dict,users=Users}) ->
 	case maps:is_key(Username,Users) of
         true -> 
         	{Money,Autotraders} = maps:get(Username,Users),
         	case maps:get(Code,Money,0) >= Amount of
         		true -> 
-        			Price = get_current_price(Code),
+        			Price = find_code(Code,Dict),
         			case Price of
 		        		null -> 
 		            		{reply,no_current_price,State};
@@ -425,6 +425,9 @@ monitor_loop(Username,Code,Amount,Price,Mode,Algorithm) ->
         	true -> null
         end
   end.
+
+%autosell_MACD(Username,Code,Amount,MinPrice) ->
+	
 
 %======================================
 %% Tests
