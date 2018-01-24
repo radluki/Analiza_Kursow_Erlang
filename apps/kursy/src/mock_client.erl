@@ -18,7 +18,7 @@ loop(Username,0) ->
 	client:get_balance(Username);
 
 loop(Username,N) ->
-	client:depose(10000),
+	client:depose(Username,10000),
 	client:set_autobuy_MACD(Username,"CHF",1000,client:get_current_price("CHF")),
 	client:buy(Username,"USD",rand:uniform(2000)),
 	client:buy(Username,"EUR",rand:uniform(2000)),
