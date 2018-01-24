@@ -27,7 +27,11 @@
 	set_autosell_MACD/4,
 	set_autobuy_MACD/4,
 	remove_autosell_MACD/2,
-	remove_autobuy_MACD/2]).
+	remove_autobuy_MACD/2,
+
+	monitor_init/7,
+	autosell_MACD/4,
+	autobuy_MACD/4]).
 
 -ifdef(TEST).
 -export([dziel_przez_0/0]).
@@ -124,7 +128,7 @@ handle_call({buy,Username,Code,Amount},_,State = #state{current_data=Dict,users=
 		        		true -> 
 		        			Money_new = Money#{Code => (maps:get(Code,Money,0) + Amount),
 									"PLN" => (maps:get("PLN",Money,0) - Amount*Price)},
-							% io:format("~p bought ~p ~p~n",[Username,Amount,Code]),
+							io:format("~p bought ~p ~p~n",[Username,Amount,Code]),
 							{reply,{ok},
 								State#state{users=Users#{Username => {Money_new,Autotraders}}}};
 		        		false -> 
@@ -148,7 +152,7 @@ handle_call({sell,Username,Code,Amount},_,State = #state{current_data=Dict,users
 		        		_Else -> 
 							Money_new = Money#{Code => (maps:get(Code,Money,0) - Amount),
 											"PLN" => (maps:get("PLN",Money,0) + Amount*Price)},
-							% io:format("~p sold ~p ~p~n",[Username,Amount,Code]),
+							io:format("~p sold ~p ~p~n",[Username,Amount,Code]),
 							{reply,{ok},
 								State#state{users=Users#{Username => {Money_new,Autotraders}}}}
 		    		end;
@@ -274,7 +278,7 @@ handle_cast({update_pid,Username,Key,Pid}, State = #state{users=Users}) ->
         		true ->
         			{_,Monitor_pid} = maps:get(Key,Autotraders),
         			Autotraders_new = Autotraders#{Key => {Pid,Monitor_pid}},
-        			{reply,{ok},State#state{users=Users#{Username => {Money,Autotraders_new}}}};
+        			{noreply,State#state{users=Users#{Username => {Money,Autotraders_new}}}};
         		false ->
         			{noreply,State}
         	end;
@@ -460,16 +464,17 @@ autosell_MACD(Username,Code,Amount,MinPrice,EMA12,EMA26) ->
 						{ok} ->
 							remove_autosell_MACD(Username,Code);
 						_Else ->
+		    				timer:sleep(?TIMEOUT),
 							autosell_MACD(Username,Code,Amount,MinPrice,EMA12_new,EMA26_new)
 					end;
-				true ->					
+				true ->		
+		    		timer:sleep(?TIMEOUT),			
 					autosell_MACD(Username,Code,Amount,MinPrice,EMA12_new,EMA26_new)
 			end
 	end.
 
 autobuy_MACD(Username,Code,Amount,MaxPrice) ->
 	Price = get_current_price(Code),
-	io:format("~p~n",Price),
 	case Price of
 		null ->
     		timer:sleep(?TIMEOUT),
@@ -483,7 +488,6 @@ autobuy_MACD(Username,Code,Amount,MaxPrice) ->
 
 autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12,EMA26) ->
     Price = get_current_price(Code),
-	io:format("~p~n",Price),
 	case Price of
 		null ->
     		timer:sleep(?TIMEOUT),
@@ -496,14 +500,16 @@ autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12,EMA26) ->
 			io:format("MACD autobuy ~p, ~p, EMA12: ~p, EMA26: ~p~n",[Username,Code,EMA12_new,EMA26_new]),
 			if
 				((MACD_new>0) and (MACD<0) and (Price<MaxPrice)) ->
-					Sell_result = sell(Username,Code,Amount),
-					case Sell_result of
+					Buy_result = buy(Username,Code,Amount),
+					case Buy_result of
 						{ok} ->
 							remove_autobuy_MACD(Username,Code);
 						_Else ->
+		    				timer:sleep(?TIMEOUT),
 							autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12_new,EMA26_new)
 					end;
 				true ->
+		    		timer:sleep(?TIMEOUT),
 					autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12_new,EMA26_new)
 			end
 	end.

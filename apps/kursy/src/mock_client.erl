@@ -3,7 +3,7 @@
 -export([start/1,init/1,loop/2]).
 
 -define(LOOP_NO,500).
--define(TIMEOUT_MOCK,500).
+-define(TIMEOUT_MOCK,5000).
 
 start(Username) ->
     P = spawn_link(?MODULE,init,[Username]),
