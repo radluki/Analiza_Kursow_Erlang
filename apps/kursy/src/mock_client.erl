@@ -12,6 +12,8 @@ start(Username) ->
 
 init(Username) ->
 	client:register_user(Username),
+	serwer_kursow:remove_autosell_MACD(Username,"USD"),
+	serwer_kursow:remove_autobuy_MACD(Username,"CHF"),
 	loop(Username,?LOOP_NO).
 
 loop(Username,0) ->

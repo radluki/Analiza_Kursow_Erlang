@@ -128,7 +128,7 @@ handle_call({buy,Username,Code,Amount},_,State = #state{current_data=Dict,users=
 		        		true -> 
 		        			Money_new = Money#{Code => (maps:get(Code,Money,0) + Amount),
 									"PLN" => (maps:get("PLN",Money,0) - Amount*Price)},
-							io:format("~p bought ~p ~p~n",[Username,Amount,Code]),
+							io:format(user,"~p bought ~p ~p~n",[Username,Amount,Code]),
 							{reply,{ok},
 								State#state{users=Users#{Username => {Money_new,Autotraders}}}};
 		        		false -> 
@@ -152,7 +152,7 @@ handle_call({sell,Username,Code,Amount},_,State = #state{current_data=Dict,users
 		        		_Else -> 
 							Money_new = Money#{Code => (maps:get(Code,Money,0) - Amount),
 											"PLN" => (maps:get("PLN",Money,0) + Amount*Price)},
-							io:format("~p sold ~p ~p~n",[Username,Amount,Code]),
+							io:format(user,"~p sold ~p ~p~n",[Username,Amount,Code]),
 							{reply,{ok},
 								State#state{users=Users#{Username => {Money_new,Autotraders}}}}
 		    		end;
@@ -456,7 +456,7 @@ autosell_MACD(Username,Code,Amount,MinPrice,EMA12,EMA26) ->
 			EMA26_new = (Price*2+EMA26*25)/27,
 			MACD = EMA12-EMA26,
 			MACD_new = EMA12_new-EMA26_new,
-			io:format("MACD autosell ~p, ~p, EMA12: ~p, EMA26: ~p~n",[Username,Code,EMA12_new,EMA26_new]),
+			io:format("MACD autosell ~p, ~p, EMA12: ~f, EMA26: ~f~n",[Username,Code,EMA12_new,EMA26_new]),
 			if
 				((MACD_new<0) and (MACD>0) and (Price>MinPrice)) ->
 					Sell_result = sell(Username,Code,Amount),
@@ -497,7 +497,7 @@ autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12,EMA26) ->
 			EMA26_new = (Price*2+EMA26*25)/27,
 			MACD = EMA12-EMA26,
 			MACD_new = EMA12_new-EMA26_new,
-			io:format("MACD autobuy ~p, ~p, EMA12: ~p, EMA26: ~p~n",[Username,Code,EMA12_new,EMA26_new]),
+			io:format("MACD autobuy ~p, ~p, EMA12: ~f, EMA26: ~f~n",[Username,Code,EMA12_new,EMA26_new]),
 			if
 				((MACD_new>0) and (MACD<0) and (Price<MaxPrice)) ->
 					Buy_result = buy(Username,Code,Amount),
