@@ -536,7 +536,9 @@ read_parsed_data_test() ->
     Data = read_parsed_data(Date).
 
 handle_unrecognized(div_by_0) ->
-    1/0.
+    1/0;
+handle_unrecognized(_) ->
+    null.
 
 x_test_some_current_data() ->
     N1 = "Abc", N2 = "Bcd", V1 = 12, V2 = 30,

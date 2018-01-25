@@ -28,7 +28,7 @@ start_link() ->
 
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    SupFlags = #{strategy => one_for_one, intensity => 1, period => 5},
+    SupFlags = #{strategy => one_for_one, intensity => 3, period => 5},
     ChildSpecs = [#{id => serwer,
                     start => {serwer_kursow, start_link, []},
                     restart => permanent,
@@ -50,7 +50,7 @@ init([]) ->
 dziel_przez_0_test() ->
     start_link(),
     serwer_kursow:dziel_przez_0(),
-    timer:sleep(20),
+    timer:sleep(200),
     serwer_kursow:get_state(). 
 
 -endif.

@@ -24,3 +24,12 @@ Test manually with console
 
 While starting serwer on borg following applications were necessary:
 inets,crypto,asn1,public\_key,ssl
+
+Creating release
+----------------
+
+    $ rebar3 release
+
+    or
+
+    $ rebar3 tar
