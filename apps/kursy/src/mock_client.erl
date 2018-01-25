@@ -3,7 +3,7 @@
 -export([start/1,init/1,loop/2]).
 
 -define(LOOP_NO,500).
--define(TIMEOUT_MOCK,500).
+-define(TIMEOUT_MOCK,5000).
 
 start(Username) ->
     P = spawn_link(?MODULE,init,[Username]),
@@ -12,6 +12,8 @@ start(Username) ->
 
 init(Username) ->
 	client:register_user(Username),
+	serwer_kursow:remove_autosell_MACD(Username,"USD"),
+	serwer_kursow:remove_autobuy_MACD(Username,"CHF"),
 	loop(Username,?LOOP_NO).
 
 loop(Username,0) ->
