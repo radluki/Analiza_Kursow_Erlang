@@ -52,7 +52,8 @@ buy_test() ->
     if
     	(Price == null) -> buy_test();
     	true -> 
-			no_user = serwer_kursow:buy(Username,Code,10000),
+			no_user = serwer_kursow:buy(Username,Password,Code,10000),
+			% authentication_failed = serwer_kursow:buy(Username,Password,Code,10000),
 			serwer_kursow:register_user(Username,Password),
 			serwer_kursow:depose(Username,100),
 			not_enough_money = serwer_kursow:buy(Username,Password,Code,10000),
@@ -72,7 +73,7 @@ sell_test() ->
 			serwer_kursow:register_user(Username,Password),
 			serwer_kursow:depose(Username,1000),
 			not_enough_money = serwer_kursow:sell(Username,Code,10000),
-			{ok} = serwer_kursow:buy(Username,Code,1),
+			{ok} = serwer_kursow:buy(Username,Password,Code,1),
 			1 = serwer_kursow:get_balance(Username,Code),
 			{ok} = serwer_kursow:sell(Username,Code,1),
 			0 = serwer_kursow:get_balance(Username,Code)
@@ -93,7 +94,7 @@ get_balance_test() ->
 			0 = serwer_kursow:get_balance(Username,Code),
 			M1 = #{"PLN" => 1000},
 			M1 = serwer_kursow:get_balance(Username),
-			serwer_kursow:buy(Username,Code,1),
+			serwer_kursow:buy(Username,Password,Code,1),
 			1 = serwer_kursow:get_balance(Username,Code)
 	end.
 
@@ -106,7 +107,7 @@ get_autotraders_test() ->
 	true = maps:is_key("sell_CHF_MACD",serwer_kursow:get_autotraders(Username)),
 	serwer_kursow:remove_autosell_MACD(Username,"CHF"),
 	false = maps:is_key("sell_CHF_MACD",serwer_kursow:get_autotraders(Username)),
-	serwer_kursow:set_autobuy_MACD(Username,"CHF",1000,4.0),
+	serwer_kursow:set_autobuy_MACD(Username,Password,"CHF",1000,4.0),
 	true = maps:is_key("buy_CHF_MACD",serwer_kursow:get_autotraders(Username)),
 	serwer_kursow:remove_autobuy_MACD(Username,"CHF"),
 	false = maps:is_key("buy_CHF_MACD",serwer_kursow:get_autotraders(Username)).

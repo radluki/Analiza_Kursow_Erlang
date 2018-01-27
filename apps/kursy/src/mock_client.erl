@@ -22,7 +22,7 @@ loop(Username,Password,0) ->
 
 loop(Username,Password,N) ->
 	client:depose(Username,10000),
-	client:set_autobuy_MACD(Username,"CHF",1000,client:get_current_price("CHF")),
+	client:set_autobuy_MACD(Username,Password,"CHF",1000,client:get_current_price("CHF")),
 	client:buy(Username,Password,"USD",rand:uniform(2000)),
 	client:buy(Username,Password,"EUR",rand:uniform(2000)),
 	client:withdraw(Username,2000),
