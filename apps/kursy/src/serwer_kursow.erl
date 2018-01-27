@@ -17,6 +17,7 @@
 	get_price/2,
 	get_price_list/3,
 	register_user/2,
+	delete_user/1,
 	depose/2,
 	withdraw/2,
 	buy/4,
@@ -272,6 +273,17 @@ handle_call({remove_autobuy_MACD,Username,Code},_,State = #state{users=Users}) -
             {reply,no_user,State}
     end;
 
+handle_call({delete_user,Username},_,State = #state{users=Users}) ->
+     Res = cpp_port:check_password(Username,null),
+     case Res of
+         login_not_found -> 
+	     New_users = try maps:remove(Username,Users) catch _ -> Users end,
+	     New_state = State#state{users=New_users},
+	     {reply,ok,New_state};
+	 _ ->
+	     {reply,user_protected_by_password,State}
+    end;
+     
 % END
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
@@ -335,6 +347,9 @@ get_price(Date={_Y,_M,_D},Code) ->
     gen_server:call(?MODULE, {get,Date,Code}).
 
 % NEW CALLBACKS
+
+delete_user(Username) ->
+	gen_server:call(?MODULE,{delete_user,Username}).
 
 register_user(Username,Password) ->
 	gen_server:call(?MODULE,{register_user,Username,Password}).

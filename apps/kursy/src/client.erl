@@ -6,6 +6,7 @@
 	remove_autobuy_MACD/2]).
 
 register_user(Username,Password) ->
+	serwer_kursow:delete_user(Username),	
 	serwer_kursow:register_user(Username,Password).
 
 depose(Username,Amount) ->

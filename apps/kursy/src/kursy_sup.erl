@@ -21,6 +21,7 @@
 
 start_link() ->
     cpp_port:start(),
+    timer:sleep(500),
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 %%====================================================================
