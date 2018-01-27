@@ -117,10 +117,11 @@ handle_call({withdraw,Username,Amount},_,State = #state{users=Users}) ->
     end;
 
 handle_call({buy,Username,Password,Code,Amount},_,State = #state{current_data=Dict,users=Users}) ->
-    % case cpp_port:check_password(Username,Password) of
-        % ok ->
-	        case maps:is_key(Username,Users) of
-                true -> 
+
+    case maps:is_key(Username,Users) of
+        true -> 
+            case cpp_port:check_password(Username,Password) of
+                ok ->
                     Price = find_code(Code,Dict),
         			case Price of
                 		null -> 
@@ -138,11 +139,11 @@ handle_call({buy,Username,Password,Code,Amount},_,State = #state{current_data=Di
         		            		{reply,not_enough_money,State}
         		    		end
             		end;
-                false -> 
-                    {reply,no_user,State}
+                _E -> {reply,authentication_failed,State}
             end;
-        % _E -> {reply,authentication_failed,State}
-    % end;
+        false -> 
+            {reply,no_user,State}
+    end;
 
 handle_call({sell,Username,Code,Amount},_,State = #state{current_data=Dict,users=Users}) ->
 	case maps:is_key(Username,Users) of
