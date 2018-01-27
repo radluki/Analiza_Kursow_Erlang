@@ -4,8 +4,9 @@
 
 register_test() ->
 	Username = test1,
-	serwer_kursow:register_user(Username),
-	already_registered = serwer_kursow:register_user(Username).
+	Password = xxx,
+	serwer_kursow:register_user(Username,Password),
+	already_registered = serwer_kursow:register_user(Username,Password).
 
 depose_no_user_test() ->
 	Username = test21,
@@ -13,7 +14,8 @@ depose_no_user_test() ->
 
 depose_test() ->
 	Username = test2,
-	Status = serwer_kursow:register_user(Username),
+	Password = xyz,
+	Status = serwer_kursow:register_user(Username,Password),
 	case Status of
 		{ok} ->
 			0 = serwer_kursow:get_balance(Username,"PLN"),
@@ -25,7 +27,8 @@ depose_test() ->
 
 withdraw_test() ->
 	Username = test3,
-	serwer_kursow:register_user(Username),
+	Password = xyz,
+	serwer_kursow:register_user(Username,Password),
 	serwer_kursow:depose(Username,1000),
 	{ok} = serwer_kursow:withdraw(Username,1000),
 	0 = serwer_kursow:get_balance(Username,"PLN").
@@ -36,34 +39,37 @@ withdraw_no_user_test() ->
 
 withdraw_not_enough_test() ->
 	Username = test32,
-	serwer_kursow:register_user(Username),
+	Password = xyz,
+	serwer_kursow:register_user(Username,Password),
 	serwer_kursow:depose(Username,1000),
 	not_enough_money = serwer_kursow:withdraw(Username,10000).
 
 buy_test() ->
 	Username = test4,
+	Password = xyz,
 	Code = "CHF",
 	Price = serwer_kursow:get_current_price(Code),
     if
     	(Price == null) -> buy_test();
     	true -> 
 			no_user = serwer_kursow:buy(Username,Code,10000),
-			serwer_kursow:register_user(Username),
+			serwer_kursow:register_user(Username,Password),
 			serwer_kursow:depose(Username,100),
-			not_enough_money = serwer_kursow:buy(Username,Code,10000),
-			{ok} = serwer_kursow:buy(Username,Code,1),
+			not_enough_money = serwer_kursow:buy(Username,Password,Code,10000),
+			{ok} = serwer_kursow:buy(Username,Password,Code,1),
 			1 = serwer_kursow:get_balance(Username,Code)
 	end.
 
 sell_test() ->
 	Username = test5,
+	Password = qqq,
 	Code = "CHF",
 	Price = serwer_kursow:get_current_price(Code),
     if
     	(Price == null) -> sell_test();
     	true -> 
 			no_user = serwer_kursow:sell(Username,Code,10000),
-			serwer_kursow:register_user(Username),
+			serwer_kursow:register_user(Username,Password),
 			serwer_kursow:depose(Username,1000),
 			not_enough_money = serwer_kursow:sell(Username,Code,10000),
 			{ok} = serwer_kursow:buy(Username,Code,1),
@@ -74,6 +80,7 @@ sell_test() ->
 
 get_balance_test() ->
 	Username = test6,
+	Password = qwe,
 	Code = "CHF",
 	Price = serwer_kursow:get_current_price(Code),
     if
@@ -81,7 +88,7 @@ get_balance_test() ->
     	true -> 
 			no_user = serwer_kursow:get_balance(Username,Code),
 			no_user = serwer_kursow:get_balance(Username),
-			serwer_kursow:register_user(Username),
+			serwer_kursow:register_user(Username,Password),
 			serwer_kursow:depose(Username,1000),
 			0 = serwer_kursow:get_balance(Username,Code),
 			M1 = #{"PLN" => 1000},
@@ -92,8 +99,9 @@ get_balance_test() ->
 
 get_autotraders_test() ->
 	Username = test7,
+	Password = xyz,
 	no_user = serwer_kursow:get_autotraders(Username),
-	serwer_kursow:register_user(Username),
+	serwer_kursow:register_user(Username,Password),
 	serwer_kursow:set_autosell_MACD(Username,"CHF",1000,4.0),
 	true = maps:is_key("sell_CHF_MACD",serwer_kursow:get_autotraders(Username)),
 	serwer_kursow:remove_autosell_MACD(Username,"CHF"),

@@ -16,10 +16,10 @@
 	get_current_price/1,
 	get_price/2,
 	get_price_list/3,
-	register_user/1,
+	register_user/2,
 	depose/2,
 	withdraw/2,
-	buy/3,
+	buy/4,
 	sell/3,
 	get_balance/1,
 	get_balance/2,
@@ -31,7 +31,7 @@
 
 	monitor_init/7,
 	autosell_MACD/4,
-	autobuy_MACD/4]).
+	autobuy_MACD/5]).
 
 -ifdef(TEST).
 -export([dziel_przez_0/0]).
@@ -80,9 +80,10 @@ handle_call(get_state,_,State) ->
 handle_call({current,Code},_,State = #state{current_data=Dict}) ->
     {reply,find_code(Code,Dict),State};
 % NEW HANDLERS
-handle_call({register_user,Username},_,State = #state{users=Users}) ->
+handle_call({register_user,Username,Password},_,State = #state{users=Users}) ->
 	case maps:is_key(Username,Users) of
         false -> 
+		cpp_port:register_user(Username,Password),
             {reply,{ok},
             	State#state{users = Users#{Username => {#{"PLN" => 0},#{}}}}};
         true -> 
@@ -115,7 +116,9 @@ handle_call({withdraw,Username,Amount},_,State = #state{users=Users}) ->
             {reply,no_user,State}
     end;
 
-handle_call({buy,Username,Code,Amount},_,State = #state{current_data=Dict,users=Users}) ->
+handle_call({buy,Username,Password,Code,Amount},_,State = #state{current_data=Dict,users=Users}) ->
+   case cpp_port:check_password(Username,Password) of
+      ok ->
 	case maps:is_key(Username,Users) of
         true -> 
         	Price = find_code(Code,Dict),
@@ -136,8 +139,10 @@ handle_call({buy,Username,Code,Amount},_,State = #state{current_data=Dict,users=
 		    		end
     		end;
         false -> 
-            {reply,no_user,State}
-    end;
+            {reply,no_user,State};
+      _E -> {reply,authentication_failed}
+    end
+  end;
 
 handle_call({sell,Username,Code,Amount},_,State = #state{current_data=Dict,users=Users}) ->
 	case maps:is_key(Username,Users) of
@@ -152,7 +157,7 @@ handle_call({sell,Username,Code,Amount},_,State = #state{current_data=Dict,users
 		        		_Else -> 
 							Money_new = Money#{Code => (maps:get(Code,Money,0) - Amount),
 											"PLN" => (maps:get("PLN",Money,0) + Amount*Price)},
-							io:format(user,"~p sold ~p ~p~n",[Username,Amount,Code]),
+							%io:format(user,"~p sold ~p ~p~n",[Username,Amount,Code]),
 							{reply,{ok},
 								State#state{users=Users#{Username => {Money_new,Autotraders}}}}
 		    		end;
@@ -248,7 +253,7 @@ handle_call({remove_autosell_MACD,Username,Code},_,State = #state{users=Users}) 
     end;
 
 handle_call({remove_autobuy_MACD,Username,Code},_,State = #state{users=Users}) ->
-	case maps:is_key(Username,Users) of
+    case maps:is_key(Username,Users) of
         true -> 
         	{Money,Autotraders} = maps:get(Username,Users),
         	Key = "buy_" ++ Code ++ "_MACD",
@@ -330,8 +335,8 @@ get_price(Date={_Y,_M,_D},Code) ->
 
 % NEW CALLBACKS
 
-register_user(Username) ->
-	gen_server:call(?MODULE,{register_user,Username}).
+register_user(Username,Password) ->
+	gen_server:call(?MODULE,{register_user,Username,Password}).
 
 depose(Username,Amount) ->
 	gen_server:call(?MODULE,{depose,Username,Amount}).
@@ -339,8 +344,8 @@ depose(Username,Amount) ->
 withdraw(Username,Amount) ->
 	gen_server:call(?MODULE,{withdraw,Username,Amount}).
 
-buy(Username,Code,Amount) ->
-	gen_server:call(?MODULE,{buy,Username,Code,Amount}).
+buy(Username,Password,Code,Amount) ->
+	gen_server:call(?MODULE,{buy,Username,Password,Code,Amount}).
 
 sell(Username,Code,Amount) ->
 	gen_server:call(?MODULE,{sell,Username,Code,Amount}).
@@ -456,7 +461,7 @@ autosell_MACD(Username,Code,Amount,MinPrice,EMA12,EMA26) ->
 			EMA26_new = (Price*2+EMA26*25)/27,
 			MACD = EMA12-EMA26,
 			MACD_new = EMA12_new-EMA26_new,
-			io:format("MACD autosell ~p, ~p, EMA12: ~f, EMA26: ~f~n",[Username,Code,EMA12_new,EMA26_new]),
+			%io:format("MACD autosell ~p, ~p, EMA12: ~f, EMA26: ~f~n",[Username,Code,EMA12_new,EMA26_new]),
 			if
 				((MACD_new<0) and (MACD>0) and (Price>MinPrice)) ->
 					Sell_result = sell(Username,Code,Amount),
@@ -473,44 +478,44 @@ autosell_MACD(Username,Code,Amount,MinPrice,EMA12,EMA26) ->
 			end
 	end.
 
-autobuy_MACD(Username,Code,Amount,MaxPrice) ->
+autobuy_MACD(Username,Password,Code,Amount,MaxPrice) ->
 	Price = get_current_price(Code),
 	case Price of
 		null ->
     		timer:sleep(?TIMEOUT),
-			autobuy_MACD(Username,Code,Amount,MaxPrice);
+			autobuy_MACD(Username,Password,Code,Amount,MaxPrice);
 		_Else ->
 			EMA12 = Price,
 			EMA26 = Price,
 		    timer:sleep(?TIMEOUT),
-			autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12,EMA26)
+			autobuy_MACD(Username,Password,Code,Amount,MaxPrice,EMA12,EMA26)
 	end.
 
-autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12,EMA26) ->
+autobuy_MACD(Username,Password,Code,Amount,MaxPrice,EMA12,EMA26) ->
     Price = get_current_price(Code),
 	case Price of
 		null ->
     		timer:sleep(?TIMEOUT),
-			autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12,EMA26);
+			autobuy_MACD(Username,Password,Code,Amount,MaxPrice,EMA12,EMA26);
 		_Else ->
 			EMA12_new = (Price*2+EMA12*11)/13,
 			EMA26_new = (Price*2+EMA26*25)/27,
 			MACD = EMA12-EMA26,
 			MACD_new = EMA12_new-EMA26_new,
-			io:format("MACD autobuy ~p, ~p, EMA12: ~f, EMA26: ~f~n",[Username,Code,EMA12_new,EMA26_new]),
+			%io:format("MACD autobuy ~p, ~p, EMA12: ~f, EMA26: ~f~n",[Username,Code,EMA12_new,EMA26_new]),
 			if
 				((MACD_new>0) and (MACD<0) and (Price<MaxPrice)) ->
-					Buy_result = buy(Username,Code,Amount),
+					Buy_result = buy(Username,Password,Code,Amount),
 					case Buy_result of
 						{ok} ->
 							remove_autobuy_MACD(Username,Code);
 						_Else ->
 		    				timer:sleep(?TIMEOUT),
-							autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12_new,EMA26_new)
+							autobuy_MACD(Username,Password,Code,Amount,MaxPrice,EMA12_new,EMA26_new)
 					end;
 				true ->
 		    		timer:sleep(?TIMEOUT),
-					autobuy_MACD(Username,Code,Amount,MaxPrice,EMA12_new,EMA26_new)
+					autobuy_MACD(Username,Password,Code,Amount,MaxPrice,EMA12_new,EMA26_new)
 			end
 	end.
 

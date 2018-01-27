@@ -3,7 +3,7 @@
 -export([register_user/2, check_password/2]).
 
 start() ->
-    start("./../../../../../serwer_hasel").
+    start("./serwer_hasel").
 
 start(ExtPrg) ->
     spawn(?MODULE, init, [ExtPrg]).
